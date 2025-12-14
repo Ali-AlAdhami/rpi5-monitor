@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import {
   Cpu,
@@ -34,11 +34,12 @@ const COLORS = {
 };
 
 // --- API Configuration ---
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// Use relative URLs since Flask serves both API and frontend from same server
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // --- Monitoring Configuration ---
 // Adjust these values to change refresh rate and chart history
-const UPDATE_INTERVAL_MS = 3000;  // How often to fetch data (1000ms = 1 second)
+const UPDATE_INTERVAL_MS = 1000;  // How often to fetch data (1000ms = 1 second)
 const CHART_HISTORY_MINUTES = 60;  // How many minutes of history to show (5 min = 300 points at 1s)
 const CHART_MAX_POINTS = (CHART_HISTORY_MINUTES * 60 * 1000) / UPDATE_INTERVAL_MS;
 
@@ -198,7 +199,7 @@ export default function App() {
         <Activity size={18} className="text-indigo-400" />
         {title}
       </h3>
-      <div style={{ height: height, width: '100%' }}>
+      <div style={{ height: height, width: '100%', overflow: 'hidden' }}>
         <ResponsiveContainer>
           {children}
         </ResponsiveContainer>
@@ -260,7 +261,6 @@ export default function App() {
                   <stop offset="95%" stopColor={COLORS.accentOrange} stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
               <XAxis
                 dataKey="time"
                 stroke="#64748b"
@@ -274,6 +274,7 @@ export default function App() {
               <Tooltip
                 contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px' }}
                 itemStyle={{ color: '#e2e8f0' }}
+                cursor={false}
               />
               <Legend
                 iconType="line"
@@ -365,10 +366,9 @@ export default function App() {
               <Activity size={18} className="text-indigo-400" />
               Network Traffic ({metrics.networkInterface})
             </h3>
-            <div style={{ height: 250, width: '100%' }}>
+            <div style={{ height: 250, width: '100%', overflow: 'hidden' }}>
               <ResponsiveContainer>
                 <LineChart data={history} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                   <XAxis
                     dataKey="time"
                     stroke="#64748b"
@@ -383,11 +383,7 @@ export default function App() {
                   <Tooltip
                      contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px' }}
                      itemStyle={{ color: '#e2e8f0' }}
-                  />
-                  <Legend
-                    iconType="line"
-                    wrapperStyle={{ paddingTop: '10px' }}
-                    formatter={(value) => <span style={{ color: '#e2e8f0', fontSize: '13px' }}>{value}</span>}
+                     cursor={false}
                   />
                   <Line type="monotone" dataKey="netIn" stroke={COLORS.accentBlue} strokeWidth={2} dot={false} name="Download (Kbps)" isAnimationActive={false} />
                   <Line type="monotone" dataKey="netOut" stroke={COLORS.accentGreen} strokeWidth={2} dot={false} name="Upload (Kbps)" isAnimationActive={false} />
@@ -397,11 +393,11 @@ export default function App() {
             <div className="flex gap-6 mt-4 justify-center">
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span className="text-sm text-slate-400">In: {metrics.networkDown.toFixed(2)} MB/s</span>
+                    <span className="text-sm text-slate-400">Download: {metrics.networkDown.toFixed(2)} MB/s</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                    <span className="text-sm text-slate-400">Out: {metrics.networkUp.toFixed(2)} MB/s</span>
+                    <span className="text-sm text-slate-400">Upload: {metrics.networkUp.toFixed(2)} MB/s</span>
                 </div>
             </div>
           </div>

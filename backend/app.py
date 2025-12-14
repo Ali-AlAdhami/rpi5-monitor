@@ -7,10 +7,12 @@ Run with: python backend/app.py
 API available at: http://localhost:5000
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import time
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 
 # Import our modules
 from metrics import (
@@ -37,12 +39,13 @@ from rpi_sensors import (
     is_raspberry_pi,
 )
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../build', static_url_path='')
 CORS(app)  # Enable CORS for React frontend
 
 # Configuration
 API_VERSION = '1.0.0'
 DEFAULT_POLL_INTERVAL = 2  # seconds
+BUILD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'build')
 
 
 @app.route('/api/health', methods=['GET'])
@@ -136,9 +139,7 @@ def get_metrics():
         return jsonify(metrics)
 
     except Exception as e:
-        print(f"Error collecting metrics: {e}")
-        import traceback
-        traceback.print_exc()
+        app.logger.error(f"Error collecting metrics: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
@@ -229,15 +230,77 @@ def get_disk():
         return jsonify({'error': str(e)}), 500
 
 
+# Serve React App (production build)
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react(path):
+    """Serve React app or API 404"""
+    # If it's an API call that doesn't exist, return JSON error
+    if path.startswith('api/'):
+        return jsonify({'error': 'Endpoint not found'}), 404
+
+    # Check if build directory exists
+    if not os.path.exists(BUILD_DIR):
+        return jsonify({
+            'error': 'React app not built',
+            'message': 'Run "npm run build" to build the frontend'
+        }), 503
+
+    # Serve static files from build directory
+    if path and os.path.exists(os.path.join(BUILD_DIR, path)):
+        return send_from_directory(BUILD_DIR, path)
+
+    # Default to index.html (for React Router)
+    return send_from_directory(BUILD_DIR, 'index.html')
+
+
 # Error handlers
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({'error': 'Endpoint not found'}), 404
-
-
 @app.errorhandler(500)
 def server_error(e):
     return jsonify({'error': 'Internal server error'}), 500
+
+
+def setup_logging():
+    """
+    Configure rotating log files
+    - Max 10MB per file
+    - Keep 5 backup files (total ~50MB max)
+    - Logs rotate automatically
+    """
+    log_dir = os.path.dirname(os.path.dirname(__file__))
+    log_file = os.path.join(log_dir, 'backend.log')
+
+    # Create rotating file handler
+    # maxBytes=10MB, backupCount=5 means max 50MB total
+    handler = RotatingFileHandler(
+        log_file,
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=5  # Keep 5 old files (backend.log.1, backend.log.2, etc.)
+    )
+
+    # Set format
+    formatter = logging.Formatter(
+        '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+    )
+    handler.setFormatter(formatter)
+    handler.setLevel(logging.INFO)
+
+    # Configure Flask's logger
+    app.logger.addHandler(handler)
+    app.logger.setLevel(logging.INFO)
+
+    # Also configure root logger for print statements
+    logging.basicConfig(
+        handlers=[handler],
+        level=logging.INFO,
+        format='[%(asctime)s] %(levelname)s: %(message)s'
+    )
+
+    app.logger.info("=" * 60)
+    app.logger.info("RPi5 Monitor - Logging initialized")
+    app.logger.info(f"Log file: {log_file}")
+    app.logger.info(f"Max size: 10MB per file, 5 backups (50MB total)")
+    app.logger.info("=" * 60)
 
 
 def print_startup_info():
@@ -263,6 +326,14 @@ def print_startup_info():
     print("  GET /api/thermal         - Temperature & power")
     print("  GET /api/disk            - Disk usage")
 
+    # Check if React build exists
+    if os.path.exists(BUILD_DIR):
+        print("\nServing React app from /build")
+        print("  Dashboard: http://0.0.0.0:5000")
+    else:
+        print("\n React app not built - run 'npm run build' first")
+        print("  API only: http://0.0.0.0:5000/api/")
+
     print("\nStarting server on http://0.0.0.0:5000")
     print("Press Ctrl+C to stop\n")
     print("=" * 60)
@@ -270,6 +341,7 @@ def print_startup_info():
 
 if __name__ == '__main__':
     print_startup_info()
+    setup_logging()
 
     app.run(
         host='0.0.0.0',

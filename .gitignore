@@ -40,10 +40,10 @@ htmlcov/
 # Backend process files
 backend.pid
 backend.log
+backend.log.*
 
-# utility files
+# Scripts folder
+/scripts/
+
+# Service file
 rpi5-monitor.service
-run-background.sh
-start-backend.sh
-stop-background.sh
-deploy.sh
