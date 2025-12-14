@@ -21,3 +21,29 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Python virtual environment
+/venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Backend process files
+backend.pid
+backend.log
+
+# utility files
+rpi5-monitor.service
+run-background.sh
+start-backend.sh
+stop-background.sh
+deploy.sh
